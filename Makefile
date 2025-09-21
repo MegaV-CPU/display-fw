@@ -1,30 +1,33 @@
 MCU = stm8s003f3
-SDCC = sdcc
+CC = sdcc
 STM8FLASH = stm8flash
 
 SRC = \
-	main.c
-OBJ = $(addprefix build/, $(SRC:.c=.rel))
-OUTPUT_BINARY = build/main.ihx
+	./main.c
 
-SDCCFLAGS = --std-c99 -mstm8
+BUILD_DIR = ./build
+OBJ = $(addprefix $(BUILD_DIR)/, $(SRC:.c=.rel))
+TARGET = $(BUILD_DIR)/main.ihx
+CFLAGS = -mstm8 --out-fmt-ihx
 
-build/:
+all: $(TARGET)
+
+$(BUILD_DIR):
 	@mkdir -p $@
 
-build/%.rel: %.c build/
-	@$(SDCC) -c $(SDCFLAGS) $<
+$(BUILD_DIR)/%.rel: %.c | $(BUILD_DIR)
+	@echo "Compiling $(notdir $@)"
+	@$(CC) $(CFLAGS) -I./ -c $^ -o $@
 
-build/%.ihx: $(OBJ)
-	@$(SDCC) $(SDCCFLAGS) --out-fmt-ihx $<
+$(TARGET): $(OBJ)
+	@echo "Linking $(notdir $@)"
+	@$(CC) $(CFLAGS) -o $(TARGET) $^
 
-build: $(OUTPUT_BINARY)
-
-flash: $(OUTPUT_BINARY)
-	@$(STM8FLASH) -c stlinkv2 -p $(MCU) -w $<
+flash: $(TARGET)
+	@echo "Flashing $(notdir $<)"
+	@$(STM8FLASH) -c stlink -p $(MCU) -s flash -w $(TARGET)
 
 clean:
-	@rm -rf build/
+	@rm -rf $(BUILD_DIR)
 
-.DEFAULT_GOAL := build
-.PHONY: build flash clean
+.PHONY: clean
