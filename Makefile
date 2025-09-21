@@ -25,7 +25,7 @@ $(TARGET): $(OBJ)
 
 flash: $(TARGET)
 	@echo "Flashing $(notdir $<)"
-	@$(STM8FLASH) -c stlink -p $(MCU) -s flash -w $(TARGET)
+	@$(STM8FLASH) -c stlinkv2 -p $(MCU) -s flash -w $(TARGET)
 
 clean:
 	@rm -rf $(BUILD_DIR)
