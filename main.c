@@ -1,104 +1,80 @@
+#include "delay.h"
+#include "display.h"
 #include "types.h"
 
-#define SEGMENT_ON_TIME_MS  1
+typedef enum {
+    BOOT_CODE_NORMAL = 0,
+    BOOT_CODE_ILLEGAL_INSTR = 3,
+    BOOT_CODE_WATCHDOG = 5,
+} boot_code_t;
 
-#define GPIOC_MASK          0xf8
-#define GPIOD_MASK          0x0c
+volatile uint16_t RAM_SEG_LEN;
+static uint8_t m_ram_code_data[255];
+static void (*m_ram_main_ptr)(void);
 
-#define GPIOC_OFF           GPIOC_MASK
-#define GPIOD_OFF           GPIOD_MASK
-
-#define MASK_A              (1 << 0)
-#define MASK_B              (1 << 1)
-#define MASK_C              (1 << 2)
-#define MASK_D              (1 << 3)
-#define MASK_E              (1 << 4)
-#define MASK_F              (1 << 5)
-#define MASK_G              (1 << 6)
-
-static const uint8_t GPIOC_SEGMENT_ON_VALUES[7] = {
-    0x78, // A
-    GPIOC_OFF, // B
-    GPIOC_OFF, // C
-    0xb8, // D
-    0xd8, // E
-    0xf0, // F
-    0xe8, // G
-};
-
-static const uint8_t GPIOD_SEGMENT_ON_VALUES[7] = {
-    GPIOD_OFF, // A
-    0x08, // B
-    0x04, // C
-    GPIOD_OFF, // D
-    GPIOD_OFF, // E
-    GPIOD_OFF, // F
-    GPIOD_OFF, // G
-};
-
-static const uint8_t SEGMENT_MASK[16] = {
-    [0x0] = MASK_A | MASK_B | MASK_C | MASK_D | MASK_E | MASK_F,
-    [0x1] = MASK_B | MASK_C,
-    [0x2] = MASK_A | MASK_B | MASK_D | MASK_E | MASK_G,
-    [0x3] = MASK_A | MASK_B | MASK_C | MASK_D | MASK_G,
-    [0x4] = MASK_B | MASK_C | MASK_F | MASK_G,
-    [0x5] = MASK_A | MASK_C | MASK_D | MASK_F | MASK_G,
-    [0x6] = MASK_A | MASK_C | MASK_D | MASK_E | MASK_F | MASK_G,
-    [0x7] = MASK_A | MASK_B | MASK_C,
-    [0x8] = MASK_A | MASK_B | MASK_C | MASK_D | MASK_E | MASK_F | MASK_G,
-    [0x9] = MASK_A | MASK_B | MASK_C | MASK_D | MASK_F | MASK_G,
-    [0xa] = MASK_A | MASK_B | MASK_C | MASK_D | MASK_E | MASK_G,
-    [0xb] = MASK_C | MASK_D | MASK_E | MASK_F | MASK_G,
-    [0xc] = MASK_A | MASK_D | MASK_E | MASK_F,
-    [0xd] = MASK_B | MASK_C | MASK_D | MASK_E | MASK_G,
-    [0xe] = MASK_A | MASK_D | MASK_E | MASK_F | MASK_G,
-    [0xf] = MASK_A | MASK_B | MASK_E | MASK_F | MASK_G,
-};
-
-static void delay_us(uint16_t us) {
-    // TODO: Tune this
-    for (uint16_t i = 0; i < us; i++);
+static inline void get_ram_seg_len(void) {
+    __asm__("pushw x");
+    __asm__("ldw x, #l_RAM_SEG");
+    __asm__("ldw _RAM_SEG_LEN, x");
+    __asm__("popw x");
 }
 
-static void delay_ms(uint16_t ms) {
-    // TODO: Tune this
-    for (uint16_t i = 0; i < ms; i++) delay_us(1000);
+static void copy_ram_main(void) {
+    get_ram_seg_len();
+    if (RAM_SEG_LEN > sizeof(m_ram_code_data)) while (1);
+
+    // Copy the ram_main function into m_ram_code_data
+    extern void ram_main(void);
+    for (uint16_t i = 0; i < RAM_SEG_LEN; i++) {
+        m_ram_code_data[i] = ((uint8_t*)ram_main)[i];
+    }
+    m_ram_main_ptr = (void(*)(void))m_ram_code_data;
 }
 
-static inline void display_off(void) {
+void main(void) {
+    // Disable all peripheral clocks
+    CLK_PCKENR1 = 0;
+    CLK_PCKENR2 = 0;
+
+    // Configure the display pins
     GPIOC->ODR = GPIOC_OFF;
     GPIOD->ODR = GPIOD_OFF;
-}
-
-static void draw_value(uint8_t value) {
-    const uint8_t ON_TIME_MS = 1;
-    const uint8_t mask = SEGMENT_MASK[value];
-    for (uint8_t i = 0; i < 7; i++) {
-        if (mask & (1 << i)) {
-            GPIOC->ODR = GPIOC_SEGMENT_ON_VALUES[i];
-            GPIOD->ODR = GPIOD_SEGMENT_ON_VALUES[i];
-        } else {
-            display_off();
-        }
-        delay_ms(ON_TIME_MS);
-    }
-    display_off();
-}
-
-static inline uint8_t read_input(void) {
-    return ((GPIOD->IDR & 0x70) >> 4) | ((GPIOA->IDR & 0x2) << 2);
-}
-
-void main() {
-    // Configure the display pins
-    display_off();
     GPIOC->DDR = GPIOC_MASK;
-    GPIOC->DDR = GPIOD_MASK;
+    GPIOD->DDR = GPIOD_MASK;
 
-    while (1) {
-        GPIOC->ODR &= ~(1 << 3);
-        delay_ms(500);
-        GPIOC->ODR |= (1 << 3);
-        delay_ms(500);
+    // Get the boot code based on the reset register value and signal it if applicable
+    boot_code_t boot_code = BOOT_CODE_NORMAL;
+    if (RST_SR & RST_SR_ILLOPF) {
+        RST_SR = RST_SR_ILLOPF;
+        boot_code = BOOT_CODE_ILLEGAL_INSTR;
     }
+    if (RST_SR & RST_SR_IWDGF) {
+        RST_SR = RST_SR_IWDGF;
+        boot_code = BOOT_CODE_WATCHDOG;
+    }
+    for (uint8_t i = 0; i < boot_code; i++) {
+        GPIOC->ODR = GPIOC_CRASH;
+        delay_ms(200);
+        GPIOC->ODR = GPIOC_OFF;
+        delay_ms(200);
+    }
+
+    // Show a dash while we boot up
+    GPIOC->ODR = GPIOC_LOADING;
+
+    // Configure and enable the watchdog (1 second timeout)
+    IWDG->KR = IWDG_KEY_ENABLE;
+    IWDG->KR = IWDG_KEY_ACCESS;
+    IWDG->PR = 6;
+    IWDG->KR = IWDG_KEY_REFRESH;
+
+    display_values_init();
+    copy_ram_main();
+
+    // Run the main code from RAM
+    m_ram_main_ptr();
+
+    // Should never get here
+    GPIOC->ODR = GPIOC_CRASH;
+    for (;;) {}
 }

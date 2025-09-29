@@ -3,9 +3,11 @@ CC = sdcc
 STM8FLASH = stm8flash
 
 SRC = \
-	./main.c
+	main.c \
+	ram_main.c \
+	display.c
 
-BUILD_DIR = ./build
+BUILD_DIR = build
 OBJ = $(addprefix $(BUILD_DIR)/, $(SRC:.c=.rel))
 TARGET = $(BUILD_DIR)/main.ihx
 CFLAGS = -mstm8 --out-fmt-ihx
@@ -25,7 +27,7 @@ $(TARGET): $(OBJ)
 
 flash: $(TARGET)
 	@echo "Flashing $(notdir $<)"
-	@$(STM8FLASH) -c stlinkv2 -p $(MCU) -s flash -w $(TARGET)
+	@sudo $(STM8FLASH) -c stlinkv2 -p $(MCU) -s flash -w $(TARGET)
 
 clean:
 	@rm -rf $(BUILD_DIR)
