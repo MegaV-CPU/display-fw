@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config.h"
 #include "types.h"
 
 #define NUM_VALUES          16
@@ -15,7 +14,6 @@
 #define GPIOC_CRASH         0x78 /* top segment */
 #define GPIOC_DEBUG         0xb8 /* bottom segment */
 
-extern uint8_t g_gpioc_value[NUM_VALUES][NUM_STEPS];
-extern uint8_t g_gpiod_value[NUM_VALUES][NUM_STEPS];
-
+void display_configure(void);
 void display_values_init(void);
+void display_value(uint8_t value);

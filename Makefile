@@ -4,7 +4,9 @@ STM8FLASH = stm8flash
 
 SRC = \
 	main.c \
-	display.c
+	display.c \
+	clock.c \
+	fault.c
 
 BUILD_DIR = build
 OBJ = $(addprefix $(BUILD_DIR)/, $(SRC:.c=.rel))

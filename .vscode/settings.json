@@ -1,9 +1,10 @@
 {
     "files.associations": {
         "type_traits": "c",
-        "config.h": "c",
-        "types.h": "c",
+        "clock.h": "c",
+        "delay.h": "c",
         "display.h": "c",
-        "delay.h": "c"
+        "fault.h": "c",
+        "types.h": "c"
     }
 }

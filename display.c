@@ -1,5 +1,6 @@
-#include "config.h"
 #include "display.h"
+
+#define NUM_STEPS           4
 
 #define MASK_A              (1 << 0)
 #define MASK_B              (1 << 1)
@@ -46,8 +47,19 @@ static const uint8_t SEGMENT_MASK[NUM_VALUES] = {
     [0xf] = MASK_A | MASK_E | MASK_F | MASK_G,
 };
 
-uint8_t g_gpioc_value[NUM_VALUES][NUM_STEPS];
-uint8_t g_gpiod_value[NUM_VALUES][NUM_STEPS];
+static uint8_t m_gpioc_value[NUM_VALUES][NUM_STEPS];
+static uint8_t m_gpiod_value[NUM_VALUES][NUM_STEPS];
+
+void display_configure(void) {
+    // Configure the display pins
+    GPIOC->ODR = GPIOC_OFF;
+    GPIOD->ODR = GPIOD_OFF;
+    GPIOC->DDR = GPIOC_MASK;
+    GPIOD->DDR = GPIOD_MASK;
+
+    // Show a dash while we boot up
+    GPIOC->ODR = GPIOC_LOADING;
+}
 
 void display_values_init(void) {
     // Precompute all the values
@@ -65,8 +77,15 @@ void display_values_init(void) {
                 }
                 segment++;
             }
-            g_gpioc_value[value][step] = c_value;
-            g_gpiod_value[value][step] = d_value;
+            m_gpioc_value[value][step] = c_value;
+            m_gpiod_value[value][step] = d_value;
         }
+    }
+}
+
+void display_value(uint8_t value) {
+    for (uint8_t step = 0; step < NUM_STEPS; step++) {
+        GPIOC->ODR = m_gpioc_value[value][step];
+        GPIOD->ODR = m_gpiod_value[value][step];
     }
 }

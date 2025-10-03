@@ -28,6 +28,7 @@ typedef struct {
 #define CLK                     ((clk_t*)0x50C0)
 
 #define CLK_ICKR_LSIRDY         (1 << 4)
+#define CLK_ICKR_HSIEN          (1 << 0)
 #define CLK_SWCR_SWEN           (1 << 1)
 #define CLK_SWCR_SWBSY          (1 << 0)
 #define CLK_SWR_LSI             0xD2
