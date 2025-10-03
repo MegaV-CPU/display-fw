@@ -4,7 +4,6 @@ STM8FLASH = stm8flash
 
 SRC = \
 	main.c \
-	ram_main.c \
 	display.c
 
 BUILD_DIR = build
