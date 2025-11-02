@@ -1,6 +1,7 @@
 #include "display.h"
 
 #define NUM_STEPS           4
+#define STEP_ON_TIME        20
 
 #define MASK_A              (1 << 0)
 #define MASK_B              (1 << 1)
@@ -87,5 +88,10 @@ void display_value(uint8_t value) {
     for (uint8_t step = 0; step < NUM_STEPS; step++) {
         GPIOC->ODR = m_gpioc_value[value][step];
         GPIOD->ODR = m_gpiod_value[value][step];
+
+        for (uint8_t i = 0; i < STEP_ON_TIME; i++) {}
+
+        GPIOC->ODR = GPIOC_OFF;
+        GPIOD->ODR = GPIOD_OFF;
     }
 }

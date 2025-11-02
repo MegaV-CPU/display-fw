@@ -4,7 +4,7 @@
 #include "fault.h"
 #include "types.h"
 
-#define INITIAL_VALUE_COUNT     100
+#define INITIAL_VALUE_COUNT     50
 #define INPUT_VALUE() \
     ((GPIOD->IDR & 0x70) >> 4) | ((GPIOA->IDR & 0x2) << 2)
 
